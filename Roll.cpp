@@ -10,171 +10,264 @@
 #include <map>
 #include <windows.h>   
 #include "Roll.h"
+
+#define OK 1;
 using namespace std;
 
-string menu = "Menu.txt";
+string _menu = "Menu.txt";
+fstream _readFile;
 static int _year, _month, _day;
+static unsigned int _getKey = 0;
+static unsigned int _checkedCount = 0;
+static bool _getFlag = false;
 
 
 #if 1
 struct Dinner
 {
-	
-	char _type;
-	string _name;
-	char time[8];
+	char mType = 'D';
+	char mTime[8];
+	bool isChecked = false;
+	int  mWordsLen = 0;
+	string mName;
 };
 
 map <int, Dinner> mp;
 
-int Read(string menu, ifstream& file)
+int Read()
 {
-	Dinner tmpd;
+	Dinner tmpD;
 	string tmps;
 	int n;
 	int key = 0;
 	string::iterator it;
-	while (getline(file, tmps))
+	while (getline(_readFile, tmps))
 	{
-		n = 0;
+		int n = 0;
 		it = tmps.begin();
 		//写入类型
-		tmpd._type = (*it);
-		it += 3;
-		while ((*it) != ' ' && it != tmps.end())
-		{
-			n ++;
-			it++;;
-		}
-		//写入名字
-		tmpd._name = tmps.substr(3, n);
+		tmpD.mType = (*it);
+
 		//写入时间
-		tmps.copy(tmpd.time, 4, n += 4);
-		tmps.copy(tmpd.time+4, 2, n += 4 );
-		tmps.copy(tmpd.time+6, 2, n += 2);
-		mp.insert(make_pair(key, tmpd));
+		tmps.copy(tmpD.mTime, 4, 2);
+		tmps.copy(tmpD.mTime + 4, 2, 6);
+		tmps.copy(tmpD.mTime + 6, 2, 8);
+
+		//写入名字
+		it += 11;
+		while (it != tmps.end())
+		{
+			n++;
+			it++;
+		}
+		tmpD.mName = tmps.substr(11, n);
+		tmpD.mWordsLen = n;
+
+		
+		//更新map
+		mp.insert(make_pair(key, tmpD));
 		key ++;
-		cout << tmpd._type << " " << tmpd._name << " " << tmpd.time[0] << tmpd.time[1] << tmpd.time[2] << tmpd.time[3]
-			 << tmpd.time[4] << tmpd.time[5] << tmpd.time[6] << tmpd.time[7] << endl;
+		/*cout << tmpD.mType << " " << tmpD.mName << " " << tmpD.mTime[0] << tmpD.mTime[1] << tmpD.mTime[2] << tmpD.mTime[3]
+			 << tmpD.mTime[4] << tmpD.mTime[5] << tmpD.mTime[6] << tmpD.mTime[7] << endl;*/
 		
 	}
 	return mp.size();
 }
 
-string Get(int rand, bool &flag, ifstream& file)
+string Get()
 {
-	//cout << rand << endl;
-	if (rand >= mp.size())
+	_getFlag = false;
+	if (_getKey >= mp.size())
 	{
-		return "rand is error";
+		_getKey = 0;
+		cout << "_getKey reset" << endl;
+		//重置后需判断是否所有选项均已判断，避免递归死循环
+		if (_checkedCount >= mp.size())
+		{
+			_getFlag = true;
+			return "quit";
+		}
+		return Get();
 	}
-	//计算差值
+	//计算时间差
 	int year_t, month_t, day_t;
-	year_t = (mp[rand].time[0] - '0')*1000 + (mp[rand].time[1] - '0') * 100 + (mp[rand].time[2] - '0') * 10 + (mp[rand].time[3] - '0');
-	month_t = (mp[rand].time[4] - '0') * 10 + (mp[rand].time[5] - '0');
-	day_t = (mp[rand].time[6] - '0') * 10 + (mp[rand].time[7] - '0');
-	int delta = (_year - year_t) * 365 + (_month - month_t) * 30 + _day - day_t;
-	cout << delta << endl;
+	year_t = (mp[_getKey].mTime[0] - '0')*1000 + (mp[_getKey].mTime[1] - '0') * 100 + (mp[_getKey].mTime[2] - '0') * 10 + (mp[_getKey].mTime[3] - '0');
+	month_t = (mp[_getKey].mTime[4] - '0') * 10 + (mp[_getKey].mTime[5] - '0');
+	day_t = (mp[_getKey].mTime[6] - '0') * 10 + (mp[_getKey].mTime[7] - '0');
+	int delta_t = (_year - year_t) * 365 + (_month - month_t) * 30 + _day - day_t;
+	//cout << delta_t << endl;
+
+	//开始判断
 	string Ra = "Roll again ";
 	string tmp_s;
-	switch (mp[rand]._type)
+	if (mp[_getKey].isChecked)
+	{
+		_getKey++;
+		return Get();
+	}
+	switch (mp[_getKey].mType)
 	{
 		case 'D':
-			if (delta < 4)
+			if (delta_t < 4)
 			{
-				return Ra.append(mp[rand]._name);
+				mp[_getKey].isChecked = true;
+				_checkedCount++;
+				return Ra.append(mp[_getKey].mName);
 			}
 			else
 			{
-				//修改时间
-				int tmp_l = 0;
-				file.clear();
-				file.seekg(0);
-				while (getline(file, tmp_s) && tmp_l < 1)
+				if (mp[_getKey].isChecked)
 				{
-					cout << "zz" << tmp_s << endl;
+					_getKey++;
+					return Get();
 				}
-				flag = true;
-				return mp[rand]._name;
+				else
+				{
+					mp[_getKey].isChecked = true;
+					_checkedCount++;
+					_getFlag = true;
+					return mp[_getKey].mName;
+				}
 			}
 			break;
 		case 'M':
-			if (delta < 30)
+			if (delta_t < 30)
 			{
-				return Ra.append(mp[rand]._name);
+				mp[_getKey].isChecked = true;
+				_checkedCount++;
+				return Ra.append(mp[_getKey].mName);
 			}
 			else
 			{
-				//修改时间
-				int tmp_l = 0;
-				file.clear();
-				file.seekg(0);
-				while (getline(file, tmp_s) && tmp_l < 1)
+				if (mp[_getKey].isChecked)
 				{
-					cout << tmp_s << endl;
+					_getKey++;
+					return Get();
 				}
-				flag = true;
-				return mp[rand]._name;
+				else
+				{
+					mp[_getKey].isChecked = true;
+					_checkedCount++;
+					_getFlag = true;
+					return mp[_getKey].mName;
+				}
 			}
 			break;
-		case 'Q':
-			if (delta < 365)
+		case 'Y':
+			if (delta_t < 365)
 			{
-				return Ra.append(mp[rand]._name);
+				mp[_getKey].isChecked = true;
+				_checkedCount++;
+				return Ra.append(mp[_getKey].mName);
 			}
 			else
 			{
-				//修改时间
-				int tmp_l = 0;
-				file.clear();
-				file.seekg(0);
-				while (getline(file, tmp_s) && tmp_l < 1)
+				if (mp[_getKey].isChecked)
 				{
-					cout << tmp_s << endl;
+					_getKey++;
+					return Get();
 				}
-				flag = true;
-				return mp[rand]._name;
+				else
+				{
+					mp[_getKey].isChecked = true;
+					_checkedCount++;
+					_getFlag = true;
+					return mp[_getKey].mName;
+				}
 			}
 			break;
 		default:
-			return mp[rand]._name;
+			_getFlag = true;
+			return mp[_getKey].mName;
 	}
+}
+
+void UpdateTime()
+{
+	int i,offset = 0;
+	//制式化日期格式
+	char mon_t[2];
+	char day_t[2];
+	mon_t[0] = _month / 10 + 48;
+	mon_t[1] = _month % 10 + 48;
+	day_t[0] = _day / 10 + 48;
+	day_t[1] = _day % 10 + 48;
+
+	if(_getKey != 0)
+	{
+		for (i = 0; i < _getKey; i++)
+		{
+			offset += mp[i].mWordsLen;
+		}
+		offset = offset + 12 * i;
+		//write time
+	}
+	_readFile.seekg(offset);
+	_readFile << mp[_getKey].mType << " " << _year << mon_t[0] << mon_t[1] << day_t[0] << day_t[1];
 }
 #endif
 
 int main()
 {	
-	ifstream ReadFile;
-	//获取时间
+
+	//获取系统时间
 	SYSTEMTIME sys;
 	GetLocalTime(&sys);
 	_year = sys.wYear;
 	_month = sys.wMonth;
 	_day = sys.wDay; 
+
 	//打开文件
-	ReadFile.open(menu, ios::in | ios::out);
-	//读入数据到map
-	if (ReadFile.fail())
+	_readFile.open(_menu, ios::in | ios::out);
+	if (_readFile.fail())
 	{
-		cout << "error: open file failed" << endl;
+		cout << "error: open _readFile failed" << endl;
 		return 0;
 	}
-
-	int count = Read(menu, ReadFile);
-	
+	//读入数据到map
+	int count = Read();
+	if (!count)
+	{
+		cout << "error: unavailable menu, please check!" << endl;
+		return 0;
+	}
 	//获取结果
 	string _result;
-	bool getted = false;
-	int get_s;
-	while (!getted)
+	while (!_getFlag)
 	{
 		//获取到随机值
 		srand((unsigned)time(NULL));
-		get_s = rand() % (count - 1);
-		_result = Get(get_s, getted, ReadFile);	//获取结果
-		getted = true;
+		_getKey = rand() % (count - 1);
+		//获取结果
+		string _result = Get();	
 		cout << _result << endl;
+		if (!_result.compare("quit"))
+		{
+			cout << "there is no available choice" << endl;
+			return 0;
+		}
+		//判断是否想吃
+		char isWanttoEat;
+		if (_getFlag) 
+		{
+			cin >> isWanttoEat;
+			if (isWanttoEat == 'N' || isWanttoEat == 'n')
+			{
+				_getFlag = false;
+			}
+			else
+			{
+				//更新时间
+				_readFile.clear();
+				UpdateTime();
+			}
+		}
+		else 
+		{
+			Sleep(800);
+		}
 	}
+	_readFile.close();
 	return 0;
 }
 
